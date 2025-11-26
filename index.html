@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zombie Squad Rush</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Noto+Sans+KR:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Noto Sans KR', sans-serif;
+            touch-action: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            background-color: #2c3e50;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .score-box {
+            font-family: 'Black Ops One', cursive;
+            font-size: 24px;
+            color: #f1c40f;
+        }
+
+        .squad-count {
+            font-size: 20px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        #menu-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        .title {
+            font-family: 'Black Ops One', cursive;
+            font-size: 48px;
+            color: #e74c3c;
+            text-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #bdc3c7;
+            font-size: 16px;
+            margin-bottom: 40px;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: linear-gradient(to bottom, #e74c3c, #c0392b);
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+            transition: transform 0.1s;
+            font-family: 'Noto Sans KR', sans-serif;
+            pointer-events: auto;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none !important;
+        }
+
+        .tutorial {
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="ui-layer">
+        <div class="header">
+            <div class="score-box">SCORE: <span id="score">0</span></div>
+            <div class="squad-count">SQUAD: <span id="squad">1</span></div>
+        </div>
+    </div>
+
+    <div id="menu-screen">
+        <div class="title">ZOMBIE<br>SQUAD</div>
+        <div class="subtitle" id="menu-subtitle">
+            인류 최후의 방어선!<br>
+            군인을 모아 좀비를 물리치세요.
+        </div>
+        <button class="btn" id="start-btn">작전 시작</button>
+        <div class="tutorial">PC: 방향키 / 모바일: 터치 드래그</div>
+    </div>
+</div>
+
+<script>
+/**
+ * 게임 설정 및 상수
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const squadEl = document.getElementById('squad');
+const menuScreen = document.getElementById('menu-screen');
+const startBtn = document.getElementById('start-btn');
+const menuSubtitle = document.getElementById('menu-subtitle');
+
+let gameState = 'MENU';
+let frameId;
+let score = 0;
+let distance = 0;
+let waveCount = 0;
+
+let canvasWidth, canvasHeight;
+function resize() {
+    canvasWidth = document.getElementById('game-container').offsetWidth;
+    canvasHeight = document.getElementById('game-container').offsetHeight;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const input = { left: false, right: false, x: 0 };
+let touchStartX = 0;
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') input.left = true;
+    if (e.key === 'ArrowRight') input.right = true;
+});
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft') input.left = false;
+    if (e.key === 'ArrowRight') input.right = false;
+});
+
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    touchStartX = e.touches[0].clientX;
+    input.x = player.x;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touchX = e.touches[0].clientX;
+    const deltaX = touchX - touchStartX;
+    player.targetX = input.x + deltaX;
+}, { passive: false });
+
+/**
+ * 그래픽 헬퍼 함수 (디자인 강화)
+ */
+function drawSoldierSprite(ctx, x, y, scale = 1) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+
+    // 그림자
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(0, 5, 12, 4, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // 몸통 (군복)
+    ctx.fillStyle = "#4a6b4a"; // 국방색
+    ctx.beginPath();
+    ctx.roundRect(-8, -10, 16, 14, 4);
+    ctx.fill();
+
+    // 조끼/벨트 디테일
+    ctx.fillStyle = "#2c3e2c";
+    ctx.fillRect(-8, 0, 16, 4);
+    ctx.fillStyle = "#1a1a1a"; // 멜빵
+    ctx.fillRect(-6, -10, 2, 14);
+    ctx.fillRect(4, -10, 2, 14);
+
+    // 머리
+    ctx.fillStyle = "#e0ac69"; // 피부색
+    ctx.beginPath();
+    ctx.arc(0, -14, 9, 0, Math.PI*2);
+    ctx.fill();
+
+    // 헬멧
+    ctx.fillStyle = "#3e553e";
+    ctx.beginPath();
+    ctx.arc(0, -16, 10, Math.PI, 0); // 반원
+    ctx.bezierCurveTo(10, -16, 10, -12, 0, -12);
+    ctx.bezierCurveTo(-10, -12, -10, -16, -10, -16); // 헬멧 끈 느낌
+    ctx.fill();
+    // 헬멧 위 장식
+    ctx.fillStyle = "#2c3e2c";
+    ctx.fillRect(-2, -26, 4, 4);
+
+    // 고글
+    ctx.fillStyle = "#333";
+    ctx.beginPath();
+    ctx.roundRect(-8, -16, 16, 6, 2);
+    ctx.fill();
+    ctx.fillStyle = "#3498db"; // 유리 반사
+    ctx.fillRect(-5, -15, 4, 2);
+    
+    // 총
+    ctx.fillStyle = "#111";
+    ctx.translate(8, -2);
+    ctx.beginPath();
+    ctx.roundRect(0, -2, 12, 4, 1); // 총신
+    ctx.fillRect(0, 2, 2, 4); // 손잡이
+    ctx.fillRect(10, -1, 2, 2); // 총구
+    ctx.fill();
+
+    ctx.restore();
+}
+
+function drawZombieSprite(ctx, x, y, scale = 1, isBoss = false) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+
+    // 그림자
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(0, 8, 14, 5, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // 몸통
+    ctx.fillStyle = isBoss ? "#5e3e3e" : "#5d6d7e"; // 보스는 붉은빛, 일반은 회색빛
+    ctx.beginPath();
+    ctx.roundRect(-10, -15, 20, 25, 5);
+    ctx.fill();
+    
+    // 찢어진 옷 효과
+    ctx.fillStyle = "#2c3e50";
+    ctx.beginPath();
+    ctx.moveTo(-10, 5);
+    ctx.lineTo(-5, -5);
+    ctx.lineTo(0, 5);
+    ctx.lineTo(5, -5);
+    ctx.lineTo(10, 5);
+    ctx.lineTo(10, 10);
+    ctx.lineTo(-10, 10);
+    ctx.fill();
+
+    // 머리
+    ctx.fillStyle = isBoss ? "#8e44ad" : "#aab7b8"; // 보스는 보라색 피부, 좀비는 창백함
+    ctx.beginPath();
+    ctx.arc(0, -20, 12, 0, Math.PI*2);
+    ctx.fill();
+
+    // 눈 (빨간색)
+    ctx.fillStyle = "#e74c3c";
+    ctx.beginPath();
+    ctx.arc(-4, -20, isBoss? 3 : 2, 0, Math.PI*2);
+    ctx.arc(4, -20, isBoss? 3 : 2, 0, Math.PI*2);
+    ctx.fill();
+    
+    // 입/상처
+    ctx.strokeStyle = "#c0392b";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-3, -15);
+    ctx.lineTo(3, -15);
+    ctx.stroke();
+
+    // 팔 (앞으로 뻗음)
+    ctx.fillStyle = isBoss ? "#8e44ad" : "#aab7b8";
+    ctx.beginPath();
+    ctx.roundRect(-14, -12, 4, 12, 2); // 왼팔
+    ctx.roundRect(10, -12, 4, 12, 2); // 오른팔
+    ctx.fill();
+
+    ctx.restore();
+}
+
+
+/**
+ * 게임 엔티티 클래스
+ */
+
+class Player {
+    constructor() {
+        this.width = 40;
+        this.height = 40;
+        this.x = canvasWidth / 2;
+        this.y = canvasHeight - 80;
+        this.targetX = this.x;
+        this.velocity = 0;
+        this.speed = 0.15;
+        this.maxSpeed = 8;
+        
+        this.squadSize = 1;
+        this.shootTimer = 0;
+        this.shootInterval = 8; // 발사 속도 약간 상향
+        this.bulletDamage = 1;
+    }
+
+    update() {
+        if (input.left) this.targetX -= this.maxSpeed;
+        if (input.right) this.targetX += this.maxSpeed;
+
+        const edge = this.width * (1 + Math.min(this.squadSize, 5) * 0.1) / 2;
+        if (this.targetX < edge) this.targetX = edge;
+        if (this.targetX > canvasWidth - edge) this.targetX = canvasWidth - edge;
+
+        this.x += (this.targetX - this.x) * this.speed;
+
+        this.shootTimer++;
+        if (this.shootTimer >= this.shootInterval) {
+            this.shoot();
+            this.shootTimer = 0;
+        }
+    }
+
+    shoot() {
+        const totalBullets = this.squadSize;
+        let visualBullets = Math.min(totalBullets, 10);
+        let damagePerBullet = Math.max(1, totalBullets / 10);
+
+        // 총알 발사 위치: 군인들의 위치를 기반으로
+        if (this.squadSize === 1) {
+            bullets.push(new Bullet(this.x + 8, this.y - 20, damagePerBullet));
+        } else {
+            // 여러 명일 때 산개 사격
+            for (let i = 0; i < visualBullets; i++) {
+                let spread = (i - (visualBullets-1)/2) * 8;
+                bullets.push(new Bullet(this.x + spread, this.y - 20, damagePerBullet));
+            }
+        }
+    }
+
+    draw() {
+        // 군인 그리기 (커스텀 스프라이트)
+        // 스쿼드가 많으면 겹쳐서 그리기
+        const drawCount = Math.min(this.squadSize, 7); 
+        
+        // 삼각형 대형으로 배치
+        for(let i = drawCount - 1; i >= 0; i--) {
+            let offsetX = (i % 2 === 0 ? 1 : -1) * Math.ceil(i/2) * 12;
+            let offsetY = Math.ceil(i/3) * 10;
+            // 리더는 맨 앞
+            if (i === 0) { offsetX = 0; offsetY = 0; }
+            
+            drawSoldierSprite(ctx, this.x + offsetX, this.y + offsetY, 1.2);
+        }
+
+        // 숫자 표시
+        if (this.squadSize > 1) {
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 16px 'Noto Sans KR'";
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 3;
+            ctx.strokeText(Math.floor(this.squadSize), this.x, this.y - 50);
+            ctx.fillText(Math.floor(this.squadSize), this.x, this.y - 50);
+        }
+    }
+}
+
+class Bullet {
+    constructor(x, y, damage) {
+        this.x = x;
+        this.y = y;
+        this.radius = 3;
+        this.speed = 15;
+        this.damage = damage;
+        this.markedForDeletion = false;
+    }
+
+    update() {
+        this.y -= this.speed;
+        if (this.y < 0) this.markedForDeletion = true;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#f39c12"; 
+        ctx.fill();
+        
+        // 총알 광원 효과
+        ctx.shadowColor = "#f1c40f";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+class ZombieHorde {
+    constructor(isBoss = false) {
+        this.isBoss = isBoss;
+        
+        // 뭉쳐서 나오는 로직
+        // 좀비 군단의 크기 (반지름)
+        this.radius = isBoss ? 80 : 40; 
+        this.x = Math.random() * (canvasWidth - this.radius * 2) + this.radius;
+        this.y = -150;
+        
+        // 2번 요청: 다가오는 속도 2배 이상 느리게
+        // 보스는 더 느리게
+        this.speed = isBoss ? 0.25 : (0.8 + Math.random() * 0.5); 
+
+        // 1번 요청: 총 체력 설정 (기본 50 정도, 점수에 따라 증가)
+        // 보스는 훨씬 많음
+        let baseHp = isBoss ? 500 : 50;
+        let scaling = score * (isBoss ? 0.5 : 0.05);
+        this.hp = Math.floor(baseHp + scaling);
+        this.maxHp = this.hp;
+
+        this.markedForDeletion = false;
+        
+        // 군단 내부의 개별 좀비들 시각화 좌표 생성
+        this.subZombies = [];
+        let count = isBoss ? 1 : Math.min(10, Math.ceil(this.hp / 10)); // 체력에 비례해 마릿수 시각화
+        for(let i=0; i<count; i++) {
+            this.subZombies.push({
+                ox: (Math.random()-0.5) * this.radius * 1.5,
+                oy: (Math.random()-0.5) * this.radius * 0.8,
+                scale: 0.8 + Math.random() * 0.4,
+                wobbleOffset: Math.random() * Math.PI * 2
+            });
+        }
+    }
+
+    update() {
+        this.y += this.speed;
+        
+        // 플레이어와 충돌
+        const dist = Math.hypot(this.x - player.x, this.y - player.y);
+        if (dist < this.radius + 20) {
+            gameOver();
+        }
+
+        if (this.y > canvasHeight + 100) {
+            if (this.isBoss) gameOver(); 
+            else this.markedForDeletion = true;
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // 보스는 거대 좀비 하나 그리기
+        if (this.isBoss) {
+            // 보스 오라
+            ctx.fillStyle = "rgba(231, 76, 60, 0.2)";
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 10, 0, Math.PI*2);
+            ctx.fill();
+            
+            drawZombieSprite(ctx, 0, 0, 3.5, true);
+        } else {
+            // 일반 군단은 여러 마리 그리기
+            // 뒤에 있는 좀비부터 그리기 위해 정렬
+            this.subZombies.sort((a, b) => a.oy - b.oy);
+            
+            this.subZombies.forEach(sub => {
+                // 약간씩 움직임
+                let wobble = Math.sin(Date.now() * 0.005 + sub.wobbleOffset) * 2;
+                drawZombieSprite(ctx, sub.ox + wobble, sub.oy, sub.scale, false);
+            });
+        }
+
+        // 체력바 및 숫자 표시
+        const hpPercent = this.hp / this.maxHp;
+        const barWidth = this.radius * 2;
+        
+        ctx.fillStyle = "#333";
+        ctx.fillRect(-barWidth/2, -this.radius - 20, barWidth, 10);
+        ctx.fillStyle = this.isBoss ? "#8e44ad" : "#e74c3c";
+        ctx.fillRect(-barWidth/2, -this.radius - 20, barWidth * hpPercent, 10);
+        
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 20px 'Black Ops One'";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 3;
+        ctx.strokeText(Math.floor(this.hp), 0, -this.radius - 35);
+        ctx.fillText(Math.floor(this.hp), 0, -this.radius - 35);
+
+        ctx.restore();
+    }
+}
+
+class Gate {
+    constructor() {
+        this.width = canvasWidth / 2.5; 
+        this.height = 60;
+        this.x = Math.random() * (canvasWidth - this.width);
+        this.y = -100;
+        this.speed = 2; // 벽은 좀비보다 빠름 (게임 템포 유지)
+        
+        // 3번 요청: 무조건 +1부터 시작
+        this.value = 1;
+        this.maxValue = 10; // 상한 10
+
+        this.markedForDeletion = false;
+        
+        // 색상 (항상 파란색 계열)
+        this.color = "#3498db";
+    }
+
+    update() {
+        this.y += this.speed;
+
+        // 충돌 체크
+        if (this.y + this.height/2 > player.y - 20 && 
+            this.y - this.height/2 < player.y + 20 &&
+            this.x < player.x && this.x + this.width > player.x) {
+            
+            addSquad(this.value);
+            this.markedForDeletion = true;
+            createParticles(player.x, player.y, '#3498db');
+        }
+
+        if (this.y > canvasHeight + 50) this.markedForDeletion = true;
+    }
+
+    hit() {
+        // 총알 맞으면 숫자 증가
+        if (this.value < this.maxValue) {
+            this.value += 0.5; // 총알 2발당 숫자 1 증가
+            if (this.value > this.maxValue) this.value = this.maxValue;
+            
+            // 타격 시각 효과 (크기 등) - 복잡해서 생략하고 파티클로 대체
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        
+        // 그라데이션
+        const grd = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+        grd.addColorStop(0, "#2980b9");
+        grd.addColorStop(1, "#3498db");
+        ctx.fillStyle = grd;
+        
+        // 둥근 사각형
+        ctx.beginPath();
+        ctx.roundRect(this.x, this.y, this.width, this.height, 10);
+        ctx.fill();
+        
+        // 테두리
+        ctx.strokeStyle = "#85c1e9";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        ctx.globalAlpha = 1.0;
+        
+        // 텍스트
+        ctx.fillStyle = "white";
+        ctx.font = "bold 32px 'Black Ops One', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "rgba(0,0,0,0.5)";
+        ctx.shadowBlur = 4;
+        
+        let displayVal = Math.floor(this.value);
+        ctx.fillText("+" + displayVal, this.x + this.width/2, this.y + this.height/2);
+        
+        ctx.restore();
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.size = Math.random() * 4 + 2;
+        this.speedX = Math.random() * 6 - 3;
+        this.speedY = Math.random() * 6 - 3;
+        this.life = 1.0;
+    }
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life -= 0.05;
+    }
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+/**
+ * 게임 로직
+ */
+
+let player;
+let bullets = [];
+let zombies = []; // 이제 Horde 객체가 들어감
+let gates = [];
+let particles = [];
+let spawnTimer = 0;
+let bossMode = false;
+
+function initGame() {
+    player = new Player();
+    bullets = [];
+    zombies = [];
+    gates = [];
+    particles = [];
+    score = 0;
+    waveCount = 0;
+    bossMode = false;
+    distance = 0;
+    spawnTimer = 0;
+    
+    scoreEl.innerText = score;
+    squadEl.innerText = 1;
+    
+    gameState = 'PLAYING';
+    menuScreen.classList.add('hidden');
+    animate();
+}
+
+function createParticles(x, y, color) {
+    for (let i = 0; i < 5; i++) {
+        particles.push(new Particle(x, y, color));
+    }
+}
+
+function addSquad(amount) {
+    player.squadSize += amount;
+    // 상한선 없음 or 적당히 제한?
+    squadEl.innerText = Math.floor(player.squadSize);
+    
+    squadEl.style.transform = "scale(1.5)";
+    squadEl.style.color = "#2ecc71";
+    setTimeout(() => {
+        squadEl.style.transform = "scale(1)";
+        squadEl.style.color = "#3498db";
+    }, 200);
+}
+
+function spawnEnemies() {
+    spawnTimer++;
+    
+    // 4번 요청: 보스가 있어도 일반 좀비/벽 등장
+    // 단, 보스 등장 직후 잠시 텀을 두거나 할 수는 있음. 여기선 그냥 계속 나오게 함.
+    
+    let spawnRate = 120; // 스폰 속도 약간 늦춤 (군단이므로)
+
+    if (spawnTimer > spawnRate) {
+        spawnTimer = 0;
+        waveCount++;
+
+        // 보스 스폰 (10 웨이브마다?)
+        if (!bossMode && waveCount % 10 === 0) {
+            bossMode = true;
+            zombies.push(new ZombieHorde(true)); 
+            
+            // 경고
+            const warning = document.createElement('div');
+            warning.innerText = "BOSS APPROACHING";
+            warning.style.position = "absolute";
+            warning.style.top = "20%";
+            warning.style.width = "100%";
+            warning.style.textAlign = "center";
+            warning.style.color = "#e74c3c";
+            warning.style.fontSize = "40px";
+            warning.style.fontWeight = "bold";
+            warning.style.fontFamily = "Black Ops One";
+            warning.style.textShadow = "0 0 20px black";
+            warning.style.zIndex = "5";
+            document.body.appendChild(warning);
+            setTimeout(() => warning.remove(), 2500);
+        } else {
+            // 일반 패턴
+            const rand = Math.random();
+            if (rand < 0.5) {
+                // 좀비 군단 (1뭉치)
+                zombies.push(new ZombieHorde(false));
+            } else if (rand < 0.8) {
+                // 게이트
+                gates.push(new Gate());
+            } else {
+                // 혼합
+                gates.push(new Gate());
+                setTimeout(() => zombies.push(new ZombieHorde(false)), 600);
+            }
+        }
+    }
+    
+    // 보스 잡았는지 체크
+    if (bossMode) {
+        const bossExists = zombies.some(z => z.isBoss);
+        if (!bossExists) {
+            bossMode = false;
+            score += 2000;
+        }
+    }
+}
+
+function update() {
+    if (gameState !== 'PLAYING') return;
+
+    distance += 5;
+    player.update();
+
+    // 총알
+    bullets.forEach((bullet) => {
+        bullet.update();
+        
+        let hitSomething = false;
+
+        // 좀비 충돌 (Horde)
+        for (let zombie of zombies) {
+            if (zombie.markedForDeletion) continue;
+            // 군단 전체 히트박스 (원형)
+            const dist = Math.hypot(bullet.x - zombie.x, bullet.y - zombie.y);
+            if (dist < zombie.radius + 10) {
+                zombie.hp -= bullet.damage;
+                bullet.markedForDeletion = true;
+                hitSomething = true;
+                
+                // 피 효과
+                createParticles(bullet.x, bullet.y - 10, '#c0392b');
+
+                if (zombie.hp <= 0) {
+                    zombie.markedForDeletion = true;
+                    score += zombie.isBoss ? 1000 : 50;
+                    scoreEl.innerText = score;
+                }
+                break; // 한 발에 한 놈만 (관통 X)
+            }
+        }
+
+        if (!hitSomething) {
+            // 게이트 충돌 (총알이 게이트를 맞추면 숫자 증가)
+            for (let gate of gates) {
+                if (bullet.y < gate.y + gate.height && bullet.y > gate.y &&
+                    bullet.x > gate.x && bullet.x < gate.x + gate.width) {
+                    
+                    gate.hit();
+                    bullet.markedForDeletion = true;
+                    createParticles(bullet.x, bullet.y, '#fff');
+                    break;
+                }
+            }
+        }
+    });
+
+    zombies.forEach(z => z.update());
+    gates.forEach(g => g.update());
+    particles.forEach(p => p.update());
+
+    bullets = bullets.filter(b => !b.markedForDeletion);
+    zombies = zombies.filter(z => !z.markedForDeletion);
+    gates = gates.filter(g => !g.markedForDeletion);
+    particles = particles.filter(p => p.life > 0);
+
+    spawnEnemies();
+}
+
+function drawBackground() {
+    ctx.fillStyle = "#2c3e50"; // 아스팔트 색
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    
+    // 질감 표현 (노이즈) - 간단하게 점
+    if (Math.random() < 0.5) {
+        ctx.fillStyle = "rgba(0,0,0,0.1)";
+        ctx.fillRect(Math.random()*canvasWidth, Math.random()*canvasHeight, 2, 2);
+    }
+    
+    // 차선
+    ctx.strokeStyle = "#95a5a6";
+    ctx.lineWidth = 4;
+    ctx.setLineDash([60, 40]);
+    ctx.lineDashOffset = -distance; 
+    
+    ctx.beginPath();
+    ctx.moveTo(canvasWidth/2, 0);
+    ctx.lineTo(canvasWidth/2, canvasHeight);
+    ctx.moveTo(canvasWidth * 0.2, 0);
+    ctx.lineTo(canvasWidth * 0.2, canvasHeight);
+    ctx.moveTo(canvasWidth * 0.8, 0);
+    ctx.lineTo(canvasWidth * 0.8, canvasHeight);
+    ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    
+    drawBackground();
+    
+    gates.forEach(g => g.draw()); 
+    zombies.forEach(z => z.draw()); // 좀비가 바닥 위에
+    bullets.forEach(b => b.draw());
+    particles.forEach(p => p.draw());
+    player.draw();
+}
+
+function animate() {
+    if (gameState !== 'PLAYING') return;
+    
+    update();
+    draw();
+    frameId = requestAnimationFrame(animate);
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER';
+    cancelAnimationFrame(frameId);
+    
+    menuScreen.classList.remove('hidden');
+    document.querySelector('.title').innerText = "MISSION FAILED";
+    menuSubtitle.innerHTML = `최종 점수: <span style="color:#f1c40f">${score}</span><br>최대 병력: ${Math.floor(player.squadSize)}`;
+    startBtn.innerText = "다시 도전";
+}
+
+startBtn.addEventListener('click', () => {
+    initGame();
+});
+
+</script>
+</body>
+</html>
