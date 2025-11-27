@@ -192,8 +192,6 @@
                 padding: 12px 28px;
             }
         }
-            to { transform: translateX(-50%) scale(1.1); }
-        }
     </style>
 </head>
 <body>
@@ -290,14 +288,24 @@ function computeBulletsPerVolleyForSquad(squadSize) {
 
 function getBulletsPerVolley() {
     if (!player) return 1;
-    return computeBulletsPerVolleyForSquad(player.squadSize);
+    let baseCount = computeBulletsPerVolleyForSquad(player.squadSize);
+    if (player.weaponType === 'shotgun') {
+        baseCount = Math.max(1, Math.round(baseCount * 1.3)); // 샷건은 30% 증가
+    }
+    return baseCount;
 }
 
-// 스팀팩 효과 적용 시 연사력 2배
+// 스팀팩 + 무기 적용 연사력 계산
+function getCurrentShootIntervalForCalc() {
+    if (!player) return FPS / 2;
+    let interval = player.shootInterval;
+    if (player.weaponType === 'shotgun') interval *= 1.2; // 샷건은 20% 느림
+    if (player.isStimpackActive) interval /= 2; // 스팀팩일 때 2배 연사
+    return interval;
+}
+
 function getVolleysPerSecond() {
-    if (!player) return 1;
-    const currentInterval = player.isStimpackActive ? player.shootInterval / 2 : player.shootInterval;
-    return FPS / currentInterval;
+    return FPS / getCurrentShootIntervalForCalc();
 }
 
 function getShotsPerSecond() {
@@ -310,11 +318,16 @@ function getBaseZombieHp() {
     return Math.max(10, Math.floor(shotsPerSecond * 50));
 }
 
-// 스팀팩 다음 스폰 시간 설정 (현재 시간 + 3초 대기 + 7~20초 랜덤)
+// 스팀팩 다음 스폰 시간 설정 (현재 시간 + 3초 대기 + 6~18초 랜덤)
 function scheduleNextStimpack() {
     const minWait = 3 * FPS; // 3초
     const randomWait = (Math.random() * 12 + 6) * FPS; // 6~18초
     nextStimpackFrame = frameCount + minWait + randomWait;
+}
+
+// 무기 아이템 다음 스폰 시간 (30초 간격)
+function scheduleNextWeaponItem() {
+    nextWeaponItemFrame = frameCount + 30 * FPS;
 }
 
 /**
@@ -455,7 +468,7 @@ function drawStimpackSprite(ctx, x, y) {
     ctx.fill();
     ctx.shadowBlur = 0; // 아이콘 내부는 깔끔하게
 
-    // 십자가 또는 번개 (공속 증가니까 번개)
+    // 번개(공속 증가)
     ctx.fillStyle = "#2ecc71";
     ctx.beginPath();
     ctx.moveTo(2, -8);
@@ -471,6 +484,35 @@ function drawStimpackSprite(ctx, x, y) {
     ctx.strokeStyle = "#27ae60";
     ctx.lineWidth = 2;
     ctx.strokeRect(-15, -15, 30, 30);
+
+    ctx.restore();
+}
+
+function drawWeaponItemSprite(ctx, x, y, type) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    ctx.shadowColor = "#f1c40f";
+    ctx.shadowBlur = 12;
+
+    // 기본 상자
+    ctx.fillStyle = "#34495e";
+    ctx.beginPath();
+    ctx.roundRect(-18, -18, 36, 36, 6);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "#f1c40f";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-18, -18, 36, 36);
+
+    // 아이콘 문자
+    ctx.fillStyle = "#f1c40f";
+    ctx.font = "bold 16px 'Black Ops One'";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const label = type === 'shotgun' ? 'SG' : 'SH';
+    ctx.fillText(label, 0, 0);
 
     ctx.restore();
 }
@@ -496,6 +538,9 @@ class Player {
         // 스팀팩 상태
         this.isStimpackActive = false;
         this.stimpackEndTime = 0;
+
+        // 무기 상태
+        this.weaponType = 'default'; // default | shotgun | shuriken
     }
 
     update() {
@@ -515,7 +560,9 @@ class Player {
         }
 
         this.shootTimer++;
-        const currentInterval = this.isStimpackActive ? this.shootInterval / 2 : this.shootInterval;
+        let currentInterval = this.shootInterval;
+        if (this.weaponType === 'shotgun') currentInterval *= 1.2; // 샷건: 20% 느림
+        if (this.isStimpackActive) currentInterval /= 2;           // 스팀팩: 2배 연사
         
         if (this.shootTimer >= currentInterval) {
             this.shoot();
@@ -525,8 +572,21 @@ class Player {
 
     shoot() {
         const effectiveSquad = Math.max(1, this.squadSize);
-        const bulletCount = computeBulletsPerVolleyForSquad(this.squadSize); 
-        const damagePerBullet = Math.max(1, effectiveSquad / bulletCount);
+        const baseBulletCount = computeBulletsPerVolleyForSquad(this.squadSize);
+        let bulletCount = baseBulletCount;
+
+        // 무기별 총알 수 조정
+        if (this.weaponType === 'shotgun') {
+            bulletCount = Math.max(1, Math.round(baseBulletCount * 1.3));
+        }
+
+        // 기본 데미지(무기 전)
+        let damagePerBullet = Math.max(1, effectiveSquad / bulletCount);
+
+        // 무기2(표창)는 기본 데미지 30% 감소
+        if (this.weaponType === 'shuriken') {
+            damagePerBullet *= 0.7;
+        }
 
         // 총알 색상 결정 (스쿼드 규모에 따라)
         let bulletColor = "#f39c12"; // 기본 (1~100)
@@ -536,20 +596,55 @@ class Player {
 
         const groupId = bulletGroupIdCounter++;
 
-        if (bulletCount >= 3) {
-            // 3발 이상: 원형으로 뭉쳐서 나감
-            const clusterRadius = 10;
+        // 무기 타입별 발사 패턴
+        if (this.weaponType === 'shotgun') {
+            // 샷건: 전방 20도 각도로 퍼져서 나감
+            const spreadRad = 20 * Math.PI / 180; // 총 20도
+            const startAngle = -Math.PI / 2 - spreadRad / 2;
+            const step = bulletCount > 1 ? spreadRad / (bulletCount - 1) : 0;
+            const speed = 15;
+
             for (let i = 0; i < bulletCount; i++) {
-                const angle = (Math.PI * 2 / bulletCount) * i;
-                const bx = this.x + Math.cos(angle) * clusterRadius;
-                const by = this.y - 20 + Math.sin(angle) * clusterRadius;
-                bullets.push(new Bullet(bx, by, damagePerBullet, groupId, bulletColor));
+                const angle = startAngle + step * i;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+                bullets.push(new Bullet(this.x, this.y - 20, damagePerBullet, groupId, bulletColor, 'shotgun', vx, vy));
+            }
+        } else if (this.weaponType === 'shuriken') {
+            // 표창: 직선 발사, 관통용
+            const speed = 15;
+            const vy = -speed;
+            if (bulletCount >= 3) {
+                const clusterRadius = 10;
+                for (let i = 0; i < bulletCount; i++) {
+                    const angle = (Math.PI * 2 / bulletCount) * i;
+                    const bx = this.x + Math.cos(angle) * clusterRadius;
+                    const by = this.y - 20 + Math.sin(angle) * clusterRadius;
+                    bullets.push(new Bullet(bx, by, damagePerBullet, groupId, "#f1c40f", 'shuriken', 0, vy));
+                }
+            } else {
+                for (let i = 0; i < bulletCount; i++) {
+                    const spread = (i - (bulletCount - 1) / 2) * 8;
+                    bullets.push(new Bullet(this.x + spread, this.y - 20, damagePerBullet, groupId, "#f1c40f", 'shuriken', 0, vy));
+                }
             }
         } else {
-            // 1~2발: 기존처럼 가로로 퍼지게
-            for (let i = 0; i < bulletCount; i++) {
-                const spread = (i - (bulletCount - 1) / 2) * 8;
-                bullets.push(new Bullet(this.x + spread, this.y - 20, damagePerBullet, groupId, bulletColor));
+            // 기본 무기: 기존 패턴
+            if (bulletCount >= 3) {
+                // 3발 이상: 원형으로 뭉쳐서 나감
+                const clusterRadius = 10;
+                for (let i = 0; i < bulletCount; i++) {
+                    const angle = (Math.PI * 2 / bulletCount) * i;
+                    const bx = this.x + Math.cos(angle) * clusterRadius;
+                    const by = this.y - 20 + Math.sin(angle) * clusterRadius;
+                    bullets.push(new Bullet(bx, by, damagePerBullet, groupId, bulletColor));
+                }
+            } else {
+                // 1~2발: 가로로 퍼지게
+                for (let i = 0; i < bulletCount; i++) {
+                    const spread = (i - (bulletCount - 1) / 2) * 8;
+                    bullets.push(new Bullet(this.x + spread, this.y - 20, damagePerBullet, groupId, bulletColor));
+                }
             }
         }
     }
@@ -561,22 +656,26 @@ class Player {
         createFloatingText("SPEED UP!", this.x, this.y - 50, "#2ecc71", "30px", 60);
     }
 
+    setWeapon(type) {
+        this.weaponType = type;
+        const label = type === 'shotgun' ? 'SHOTGUN' : 'SHURIKEN';
+        const color = type === 'shotgun' ? '#e67e22' : '#f1c40f';
+        createFloatingText(label, this.x, this.y - 70, color, '26px', 60);
+    }
+
     draw() {
-        // 군인 수 시각화: 1~20: 1명, 21~40: 2명 ... (최대 10명)
-        // 계산식: floor((n-1)/20) + 1
+        // 군인 수 시각화: 1~20: 1명, 21~40: 2명 ... (최대 13명)
         let drawCount = Math.floor((Math.max(1, this.squadSize) - 1) / 20) + 1;
         drawCount = Math.min(drawCount, 13);
         
         // 원형으로 뭉치기
-        // 1명이면 중앙
         if (drawCount === 1) {
             drawSoldierSprite(ctx, this.x, this.y, 1.2);
         } else {
-            // 여러명이면 원형 배치
             const radius = 25; 
             for(let i = 0; i < drawCount; i++) {
-                const angle = (Math.PI * 2 / drawCount) * i - (Math.PI / 2); // 위쪽부터 시작
-                const ox = Math.cos(angle) * radius * (0.5 + (i%2)*0.5); // 지그재그 느낌
+                const angle = (Math.PI * 2 / drawCount) * i - (Math.PI / 2);
+                const ox = Math.cos(angle) * radius * (0.5 + (i%2)*0.5);
                 const oy = Math.sin(angle) * radius * 0.8;
                 
                 drawSoldierSprite(ctx, this.x + ox, this.y + oy, 1.0);
@@ -596,33 +695,55 @@ class Player {
 }
 
 class Bullet {
-    constructor(x, y, damage, groupId, color) {
+    constructor(x, y, damage, groupId, color, type = 'default', vx = 0, vy = -15) {
         this.x = x;
         this.y = y;
-        this.radius = 3.63; // 기존보다 추가 10% 증가
+        this.radius = type === 'shuriken' ? 6 : 3.63; // 표창은 조금 더 크게
         this.speed = 15;
-        this.damage = damage;
+        this.damage = damage; // 기본 데미지 (표창의 경우 1타 기준)
         this.groupId = groupId; 
-        this.color = color; // 전달받은 색상 사용
+        this.color = color; 
+        this.weaponType = type; // default | shotgun | shuriken
+        this.vx = vx;
+        this.vy = vy;
         this.markedForDeletion = false;
+        this.hitCount = 0; // 표창용: 맞춘 좀비 수
     }
 
     update() {
-        this.y -= this.speed;
-        if (this.y < 0) this.markedForDeletion = true;
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.y < -50 || this.y > canvasHeight + 50 || this.x < -50 || this.x > canvasWidth + 50) {
+            this.markedForDeletion = true;
+        }
     }
 
     draw() {
         ctx.save();
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.color; 
-        ctx.fill();
-        
-        // 총알 광원 효과
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 10;
-        ctx.fill();
+        ctx.translate(this.x, this.y);
+
+        if (this.weaponType === 'shuriken') {
+            // 표창 모양
+            ctx.fillStyle = this.color;
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 10;
+
+            ctx.beginPath();
+            ctx.moveTo(0, -this.radius);
+            ctx.lineTo(this.radius, 0);
+            ctx.lineTo(0, this.radius);
+            ctx.lineTo(-this.radius, 0);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            // 일반 탄환
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color; 
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 10;
+            ctx.fill();
+        }
 
         ctx.restore();
     }
@@ -664,6 +785,37 @@ class Stimpack {
     }
 }
 
+class WeaponItem {
+    constructor(type) {
+        this.type = type; // 'shotgun' | 'shuriken'
+        this.width = 40;
+        this.height = 40;
+        this.x = Math.random() * (canvasWidth - this.width * 2) + this.width;
+        this.y = -50;
+        this.speed = 3;
+        this.markedForDeletion = false;
+    }
+
+    update() {
+        this.y += this.speed;
+
+        const dist = Math.hypot(this.x - player.x, this.y - player.y);
+        if (dist < 40) {
+            player.setWeapon(this.type);
+            this.markedForDeletion = true;
+            createParticles(this.x, this.y, '#f1c40f');
+        }
+
+        if (this.y > canvasHeight + 50) {
+            this.markedForDeletion = true;
+        }
+    }
+
+    draw() {
+        drawWeaponItemSprite(ctx, this.x, this.y, this.type);
+    }
+}
+
 class ZombieHorde {
     constructor(isBoss = false) {
         this.isBoss = isBoss;
@@ -682,8 +834,6 @@ class ZombieHorde {
         let baseHp = getBaseZombieHp();
         
         // 체력 감소 로직
-        // 1. 보스는 처음부터 30% 감소
-        // 2. 일반 좀비는 2웨이브(WaveCount >= 2)부터 30% 감소 (1웨이브 이후)
         let hpMultiplier = 1.0;
         if (this.isBoss) {
             hpMultiplier = 0.7;
@@ -693,22 +843,20 @@ class ZombieHorde {
 
         baseHp = Math.floor(baseHp * hpMultiplier * 0.95); // 전체 체력 5% 감소
 
-        // [변경] 보스전일 때 일반 좀비 체력 절반
+        // 보스전일 때 일반 좀비 체력 절반
         if (bossMode && !this.isBoss) {
-            baseHp = Math.floor(baseHp * 0.5 * 0.95); // 보스전 일반 좀비 추가 5% 감소
+            baseHp = Math.floor(baseHp * 0.5 * 0.95);
         }
 
         if (this.isBoss) {
-            // [변경] 보스 체력 30배 -> 15배로 하향
+            // 보스 체력 15배
             this.hp = baseHp * 15;
             this.maxHp = this.hp;
         } else {
             zombieSpawnedCount++;
             if (zombieSpawnedCount <= 5) {
-                // 초반 랜덤 체력도 배율 적용
                 const randHp = 30 + Math.floor(Math.random() * 31); 
                 let adjustedRandHp = Math.floor(randHp * hpMultiplier * 0.95);
-                // 보스전 중이면 초반 좀비도 절반
                 if (bossMode) adjustedRandHp = Math.floor(adjustedRandHp * 0.5 * 0.95);
                 
                 this.hp = adjustedRandHp;
@@ -731,7 +879,6 @@ class ZombieHorde {
              visualCount = Math.max(1, Math.min(visualCount, 15));
         }
 
-        // 시각화 좌표 생성
         for(let i=0; i<visualCount; i++) {
             this.subZombies.push({
                 ox: (Math.random()-0.5) * this.radius * 1.5,
@@ -829,6 +976,7 @@ class ZombieHorde {
 
 class Gate {
     constructor() {
+        this.id = gateIdCounter++;
         this.width = canvasWidth / 2.5 * 0.9;  
         this.height = 60 * 0.9;               
         this.x = Math.random() * (canvasWidth - this.width);
@@ -968,17 +1116,21 @@ let gates = [];
 let particles = [];
 let floatingTexts = []; 
 let stimpacks = []; // 스팀팩 아이템 배열
+let weaponItems = []; // 무기 아이템 배열
 
 let spawnTimer = 0;
 let bossMode = false;
 let nextStimpackFrame = 0; // 다음 스팀팩 스폰 프레임
 let firstBossEncountered = false; // 첫 보스 조우 여부
+let nextWeaponItemFrame = 0; // 무기 아이템 스폰 프레임
+let firstSpawnDone = false; // 첫 스폰이 숫자벽인지 여부
 
 let normalZombieKillCount = 0;
 let normalZombieSpawnCount = 1;
 let bulletGroupIdCounter = 0;
 let bulletGroupGateHit = {}; 
 let zombieSpawnedCount = 0;
+let gateIdCounter = 0;
 
 function initGame() {
     player = new Player();
@@ -988,6 +1140,7 @@ function initGame() {
     particles = [];
     floatingTexts = [];
     stimpacks = [];
+    weaponItems = [];
     
     score = 0;
     waveCount = 1; // 1부터 시작
@@ -1001,10 +1154,17 @@ function initGame() {
     bulletGroupIdCounter = 0;
     bulletGroupGateHit = {};
     zombieSpawnedCount = 0;
+    gateIdCounter = 0;
     
-    // [변경] 스팀팩 타이머 초기화 (무한대) - 첫 보스 등장 시 설정됨
+    // 스팀팩 타이머 초기화 (첫 보스 이후 시작)
     nextStimpackFrame = Infinity;
     firstBossEncountered = false;
+
+    // 무기 아이템 타이머 (게임 시작 30초 후 첫 등장)
+    nextWeaponItemFrame = 30 * FPS;
+
+    // 첫 스폰은 반드시 숫자벽
+    firstSpawnDone = false;
 
     scoreEl.innerText = score;
     squadEl.innerText = 1;
@@ -1037,6 +1197,11 @@ function addSquad(amount) {
     }, 200);
 }
 
+function spawnWeaponItem() {
+    const type = Math.random() < 0.5 ? 'shotgun' : 'shuriken';
+    weaponItems.push(new WeaponItem(type));
+}
+
 function spawnEnemies() {
     spawnTimer++;
     
@@ -1046,15 +1211,20 @@ function spawnEnemies() {
         spawnTimer = 0;
         waveCount++;
 
+        // 게임 시작 후 첫 번째 스폰은 반드시 숫자벽
+        if (!firstSpawnDone) {
+            gates.push(new Gate());
+            firstSpawnDone = true;
+            return;
+        }
+
         if (!bossMode && waveCount % 12 === 0) {
             bossMode = true;
             zombies.push(new ZombieHorde(true)); 
             
-            // [변경] 첫 보스 등장 1초 후 스팀팩 등장 예약
-            if (!firstBossEncountered) {
-                firstBossEncountered = true;
-                nextStimpackFrame = frameCount + 3 * FPS; // 보스 등장 3초 후 첫 스팀팩
-            }
+            // 보스 등장 4초 후 스팀팩 강제 1회 등장 예약
+            nextStimpackFrame = frameCount + 4 * FPS;
+            firstBossEncountered = true;
             
             const warning = document.createElement('div');
             warning.innerText = "BOSS APPROACHING";
@@ -1105,54 +1275,82 @@ function update() {
     player.update();
 
     // 스팀팩 스폰 체크
-    if (frameCount >= nextStimpackFrame && stimpacks.length === 0) {
+    if (frameCount >= nextStimpackFrame && stimpacks.length === 0 && firstBossEncountered) {
         stimpacks.push(new Stimpack());
-        nextStimpackFrame = Infinity; // 중복 생성 방지, 아이템 사라지면 다시 세팅
+        nextStimpackFrame = Infinity; // 아이템 사라지면 다시 세팅
+    }
+
+    // 무기 아이템 스폰 체크 (30초 간격, 1개씩)
+    if (frameCount >= nextWeaponItemFrame && weaponItems.length === 0) {
+        spawnWeaponItem();
+        scheduleNextWeaponItem();
     }
 
     bullets.forEach((bullet) => {
         bullet.update();
         
-        let hitSomething = false;
+        let hitZombie = false;
 
         for (let zombie of zombies) {
             if (zombie.markedForDeletion) continue;
             const dist = Math.hypot(bullet.x - zombie.x, bullet.y - zombie.y);
             if (dist < zombie.radius + 10) {
-                const damage = bullet.damage;
-                const isDead = zombie.takeDamage(damage);
-                createFloatingText(`-${Math.floor(damage)}`, bullet.x, bullet.y, '#f1c40f', '20px', 20);
+                hitZombie = true;
 
-                bullet.markedForDeletion = true;
-                hitSomething = true;
-                
-                createParticles(bullet.x, bullet.y - 10, '#c0392b');
-
-                if (isDead) {
-                    if (!zombie.isBoss) {
-                        normalZombieKillCount++;
-                        normalZombieSpawnCount = Math.min(30, 1 + Math.floor(normalZombieKillCount / 50));
+                // 표창 관통 데미지 계산
+                let appliedDamage = bullet.damage;
+                if (bullet.weaponType === 'shuriken') {
+                    if (bullet.hitCount === 0) {
+                        appliedDamage = bullet.damage;          // 1번째: 100%
+                    } else if (bullet.hitCount === 1) {
+                        appliedDamage = bullet.damage * 0.5;   // 2번째: 50%
+                    } else if (bullet.hitCount === 2) {
+                        appliedDamage = bullet.damage * 0.3;   // 3번째: 30%
+                    } else {
+                        appliedDamage = 0;
                     }
-
-                    const gain = Math.floor(zombie.maxHp / 2);
-                    score += gain;
-                    scoreEl.innerText = score;
-                    createFloatingText(`+${gain}점`, zombie.x, zombie.y, '#f1c40f', '24px', 40); 
                 }
-                break; 
+
+                if (appliedDamage > 0) {
+                    const isDead = zombie.takeDamage(appliedDamage);
+                    createFloatingText(`-${Math.floor(appliedDamage)}`, bullet.x, bullet.y, '#f1c40f', '20px', 20);
+                    createParticles(bullet.x, bullet.y - 10, '#c0392b');
+
+                    if (isDead) {
+                        if (!zombie.isBoss) {
+                            normalZombieKillCount++;
+                            normalZombieSpawnCount = Math.min(30, 1 + Math.floor(normalZombieKillCount / 50));
+                        }
+
+                        const gain = Math.floor(zombie.maxHp / 2);
+                        score += gain;
+                        scoreEl.innerText = score;
+                        createFloatingText(`+${gain}점`, zombie.x, zombie.y, '#f1c40f', '24px', 40); 
+                    }
+                }
+
+                bullet.hitCount++;
+
+                // 표창이 아니거나, 표창이라도 3명 맞추면 소멸
+                if (bullet.weaponType !== 'shuriken' || bullet.hitCount >= 3) {
+                    bullet.markedForDeletion = true;
+                }
+                
+                break; // 한 프레임에 한 좀비만 처리
             }
         }
 
-        if (!hitSomething) {
+        if (!hitZombie) {
             for (let gate of gates) {
                 if (bullet.y < gate.y + gate.height && bullet.y > gate.y &&
                     bullet.x > gate.x && bullet.x < gate.x + gate.width) {
                     
                     createParticles(bullet.x, bullet.y, '#fff');
 
-                    if (!bulletGroupGateHit[bullet.groupId]) {
-                        bulletGroupGateHit[bullet.groupId] = true;
-                        gate.hit(); 
+                    const key = `${bullet.groupId}-${gate.id}`;
+                    if (!bulletGroupGateHit[key]) {
+                        bulletGroupGateHit[key] = true;
+                        gate.hit(); // 같은 탄막이라도 다른 숫자벽은 각각 증가
                     }
                     break;
                 }
@@ -1163,6 +1361,7 @@ function update() {
     zombies.forEach(z => z.update());
     gates.forEach(g => g.update());
     stimpacks.forEach(s => s.update());
+    weaponItems.forEach(w => w.update());
     particles.forEach(p => p.update());
     floatingTexts.forEach(t => t.update());
 
@@ -1170,6 +1369,7 @@ function update() {
     zombies = zombies.filter(z => !z.markedForDeletion);
     gates = gates.filter(g => !g.markedForDeletion);
     stimpacks = stimpacks.filter(s => !s.markedForDeletion);
+    weaponItems = weaponItems.filter(w => !w.markedForDeletion);
     particles = particles.filter(p => p.life > 0);
     floatingTexts = floatingTexts.filter(t => !t.markedForDeletion);
 
@@ -1207,7 +1407,8 @@ function draw() {
     drawBackground();
     
     gates.forEach(g => g.draw()); 
-    stimpacks.forEach(s => s.draw()); // 스팀팩 그리기
+    stimpacks.forEach(s => s.draw());
+    weaponItems.forEach(w => w.draw());
     zombies.forEach(z => z.draw());
     bullets.forEach(b => b.draw());
     particles.forEach(p => p.draw());
