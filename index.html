@@ -299,7 +299,7 @@ function getBulletsPerVolley() {
 function getCurrentShootIntervalForCalc() {
     if (!player) return FPS / 2;
     let interval = player.shootInterval;
-    if (player.weaponType === 'shotgun') interval *= 1.2; // 샷건은 20% 느림
+    if (player.weaponType === 'shotgun') interval *= 1.1; // 샷건은 10% 느림 (10% 증가)
     if (player.isStimpackActive) interval /= 2; // 스팀팩일 때 2배 연사
     return interval;
 }
@@ -506,12 +506,12 @@ function drawWeaponItemSprite(ctx, x, y, type) {
     ctx.lineWidth = 2;
     ctx.strokeRect(-18, -18, 36, 36);
 
-    // 아이콘 문자
+    // 아이콘 문자 (한글)
     ctx.fillStyle = "#f1c40f";
-    ctx.font = "bold 16px 'Black Ops One'";
+    ctx.font = "bold 14px 'Noto Sans KR'";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const label = type === 'shotgun' ? 'SG' : 'SH';
+    const label = type === 'shotgun' ? '샷건' : '표창';
     ctx.fillText(label, 0, 0);
 
     ctx.restore();
@@ -561,7 +561,7 @@ class Player {
 
         this.shootTimer++;
         let currentInterval = this.shootInterval;
-        if (this.weaponType === 'shotgun') currentInterval *= 1.2; // 샷건: 20% 느림
+        if (this.weaponType === 'shotgun') currentInterval *= 1.1; // 샷건: 10% 느림 (10% 증가)
         if (this.isStimpackActive) currentInterval /= 2;           // 스팀팩: 2배 연사
         
         if (this.shootTimer >= currentInterval) {
@@ -658,7 +658,7 @@ class Player {
 
     setWeapon(type) {
         this.weaponType = type;
-        const label = type === 'shotgun' ? 'SHOTGUN' : 'SHURIKEN';
+        const label = type === 'shotgun' ? '샷건' : '표창';
         const color = type === 'shotgun' ? '#e67e22' : '#f1c40f';
         createFloatingText(label, this.x, this.y - 70, color, '26px', 60);
     }
@@ -849,8 +849,8 @@ class ZombieHorde {
         }
 
         if (this.isBoss) {
-            // 보스 체력 15배
-            this.hp = baseHp * 15;
+            // 보스 체력 15배 (5% 감소: 14.25배)
+            this.hp = baseHp * 14.25;
             this.maxHp = this.hp;
         } else {
             zombieSpawnedCount++;
@@ -1334,9 +1334,14 @@ function update() {
                 // 표창이 아니거나, 표창이라도 3명 맞추면 소멸
                 if (bullet.weaponType !== 'shuriken' || bullet.hitCount >= 3) {
                     bullet.markedForDeletion = true;
+                    break; // 일반 총알이거나 표창이 3명 맞추면 종료
                 }
                 
-                break; // 한 프레임에 한 좀비만 처리
+                // 표창이 3명 미만 맞췄으면 관통하여 다음 좀비도 확인 (break하지 않음)
+                // 일반 총알은 한 좀비만 처리하므로 break
+                if (bullet.weaponType !== 'shuriken') {
+                    break;
+                }
             }
         }
 
