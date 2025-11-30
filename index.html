@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Zombie Squad Rush</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Noto+Sans+KR:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;500;700&display=swap');
 
         html, body {
             width: 100%;
@@ -16,22 +16,57 @@
         }
 
         body {
-            background-color: #1a1a1a;
-            font-family: 'Noto Sans KR', sans-serif;
+            background: radial-gradient(ellipse at center, #1a1a1a 0%, #000000 100%);
+            font-family: 'Rajdhani', sans-serif;
             touch-action: none;
             display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(139, 69, 19, 0.03) 0px,
+                    transparent 1px,
+                    transparent 2px,
+                    rgba(139, 69, 19, 0.03) 3px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    rgba(139, 69, 19, 0.03) 0px,
+                    transparent 1px,
+                    transparent 2px,
+                    rgba(139, 69, 19, 0.03) 3px
+                );
+            pointer-events: none;
+            z-index: 0;
         }
 
         #game-container {
-            position: relative; /* 자식 요소의 absolute 기준점 */
+            position: relative;
             width: 100%;
             max-width: 600px;
             height: 100%;
-            background-color: #2c3e50;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background: 
+                linear-gradient(180deg, rgba(20, 25, 30, 0.95) 0%, rgba(15, 18, 22, 0.98) 100%),
+                url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="%23000000"/><circle cx="50" cy="50" r="1" fill="%23333333" opacity="0.3"/></svg>');
+            border: 2px solid rgba(100, 100, 100, 0.2);
+            border-top: 3px solid rgba(150, 150, 150, 0.3);
+            box-shadow: 
+                inset 0 0 50px rgba(0, 0, 0, 0.8),
+                0 0 30px rgba(0, 0, 0, 0.9),
+                0 0 0 1px rgba(50, 50, 50, 0.5);
             overflow: hidden;
+            z-index: 1;
         }
 
         canvas {
@@ -55,24 +90,66 @@
         }
 
         .header {
-            padding: 20px;
+            padding: 15px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            color: white;
-            text-shadow: 2px 2px 0 #000;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 100%);
+            border-bottom: 2px solid rgba(200, 150, 50, 0.3);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
         }
 
         .score-box {
-            font-family: 'Black Ops One', cursive;
-            font-size: 24px;
-            color: #f1c40f;
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffaa00;
+            text-shadow: 
+                0 0 8px rgba(255, 170, 0, 0.8),
+                0 2px 4px rgba(0, 0, 0, 0.9);
+            letter-spacing: 1px;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .score-box::before {
+            content: '●';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #ff3333;
+            font-size: 10px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
 
         .squad-count {
-            font-size: 20px;
-            font-weight: bold;
-            color: #3498db;
+            font-family: 'Orbitron', monospace;
+            font-size: 16px;
+            font-weight: 600;
+            color: #00d4ff;
+            text-shadow: 
+                0 0 6px rgba(0, 212, 255, 0.6),
+                0 2px 4px rgba(0, 0, 0, 0.9);
+            letter-spacing: 1px;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .squad-count::before {
+            content: '■';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #00d4ff;
+            font-size: 8px;
         }
 
         /* 메뉴 스크린 (시작/게임오버 화면) - 최상단 고정 */
@@ -84,51 +161,144 @@
             bottom: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: 
+                radial-gradient(ellipse at center, rgba(20, 10, 5, 0.95) 0%, rgba(0, 0, 0, 0.98) 100%),
+                url('data:image/svg+xml,<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="%23333" stroke-width="0.5" opacity="0.3"/></pattern></defs><rect width="200" height="200" fill="url(%23grid)"/></svg>');
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            pointer-events: auto; /* 버튼 클릭 가능 */
-            z-index: 20; /* 가장 위에 표시 */
+            pointer-events: auto;
+            z-index: 20;
             transition: opacity 0.3s;
+            border: 2px solid rgba(150, 100, 50, 0.2);
+        }
+
+        #menu-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(100, 50, 0, 0.03) 2px,
+                rgba(100, 50, 0, 0.03) 4px
+            );
+            pointer-events: none;
         }
 
         .title {
-            font-family: 'Black Ops One', cursive;
-            font-size: 48px;
-            color: #e74c3c;
-            text-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
-            margin-bottom: 10px;
+            font-family: 'Orbitron', monospace;
+            font-size: 42px;
+            font-weight: 900;
+            color: #ff8800;
+            text-shadow: 
+                0 0 20px rgba(255, 136, 0, 0.8),
+                0 0 40px rgba(255, 136, 0, 0.4),
+                0 4px 8px rgba(0, 0, 0, 0.9);
+            margin-bottom: 20px;
             text-align: center;
-            line-height: 1.1;
+            line-height: 1.2;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            position: relative;
+            padding: 20px 40px;
+            border: 2px solid rgba(255, 136, 0, 0.3);
+            background: linear-gradient(135deg, rgba(255, 136, 0, 0.1) 0%, rgba(255, 68, 0, 0.05) 100%);
+            box-shadow: 
+                inset 0 0 30px rgba(255, 136, 0, 0.2),
+                0 0 20px rgba(255, 136, 0, 0.3);
+        }
+
+        .title::before,
+        .title::after {
+            content: '▸';
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 136, 0, 0.5);
+            font-size: 24px;
+        }
+
+        .title::before {
+            left: 10px;
+        }
+
+        .title::after {
+            right: 10px;
+            transform: translateY(-50%) rotate(180deg);
         }
 
         .subtitle {
-            color: #bdc3c7;
-            font-size: 16px;
-            margin-bottom: 40px;
+            color: #cccccc;
+            font-size: 15px;
+            font-weight: 400;
+            margin-bottom: 50px;
             text-align: center;
-            line-height: 1.5;
+            line-height: 1.8;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            max-width: 400px;
+            padding: 0 20px;
         }
 
         .btn {
-            background: linear-gradient(to bottom, #e74c3c, #c0392b);
-            border: none;
-            padding: 15px 40px;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            border-radius: 50px;
+            background: linear-gradient(135deg, rgba(200, 100, 50, 0.9) 0%, rgba(150, 60, 30, 0.95) 100%);
+            border: 2px solid rgba(255, 150, 50, 0.5);
+            padding: 18px 50px;
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'Rajdhani', sans-serif;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
-            transition: transform 0.1s;
-            font-family: 'Noto Sans KR', sans-serif;
+            box-shadow: 
+                inset 0 2px 4px rgba(255, 255, 255, 0.2),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+                0 4px 12px rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(255, 150, 50, 0.3);
+            transition: all 0.2s;
             pointer-events: auto;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            transition: all 0.5s;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, rgba(220, 120, 60, 0.95) 0%, rgba(170, 70, 40, 1) 100%);
+            border-color: rgba(255, 180, 70, 0.7);
+            box-shadow: 
+                inset 0 2px 4px rgba(255, 255, 255, 0.3),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+                0 6px 16px rgba(0, 0, 0, 0.7),
+                0 0 30px rgba(255, 150, 50, 0.5);
+        }
+
+        .btn:hover::before {
+            left: 100%;
         }
 
         .btn:active {
-            transform: scale(0.95);
+            transform: translateY(2px);
+            box-shadow: 
+                inset 0 4px 8px rgba(0, 0, 0, 0.6),
+                0 2px 6px rgba(0, 0, 0, 0.5);
         }
 
         .hidden {
@@ -138,9 +308,15 @@
         }
 
         .tutorial {
-            margin-top: 20px;
-            color: #7f8c8d;
-            font-size: 14px;
+            margin-top: 30px;
+            color: rgba(180, 180, 180, 0.7);
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: 1px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-top: 1px solid rgba(150, 150, 150, 0.2);
+            border-bottom: 1px solid rgba(150, 150, 150, 0.2);
         }
 
         /* 스팀팩 효과 표시 */
@@ -149,17 +325,34 @@
             top: 80px;
             left: 50%;
             transform: translateX(-50%);
-            color: #2ecc71;
-            font-family: 'Black Ops One', cursive;
-            font-size: 30px;
-            text-shadow: 0 0 10px #2ecc71;
+            color: #00ff88;
+            font-family: 'Orbitron', monospace;
+            font-size: 24px;
+            font-weight: 700;
+            text-shadow: 
+                0 0 10px rgba(0, 255, 136, 0.8),
+                0 0 20px rgba(0, 255, 136, 0.5),
+                0 2px 4px rgba(0, 0, 0, 0.9);
             display: none;
             z-index: 4;
-            animation: pulse 0.5s infinite alternate;
+            animation: pulse 0.8s infinite alternate;
+            letter-spacing: 3px;
+            padding: 8px 20px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.4);
+            box-shadow: 
+                inset 0 0 15px rgba(0, 255, 136, 0.2),
+                0 0 20px rgba(0, 255, 136, 0.3);
         }
         @keyframes pulse {
-            from { transform: translateX(-50%) scale(1); }
-            to { transform: translateX(-50%) scale(1.1); }
+            from { 
+                transform: translateX(-50%) scale(1);
+                opacity: 0.9;
+            }
+            to { 
+                transform: translateX(-50%) scale(1.05);
+                opacity: 1;
+            }
         }
 
         /* 모바일(S25 Ultra 등) 최적화 */
@@ -299,7 +492,7 @@ function getBulletsPerVolley() {
 function getCurrentShootIntervalForCalc() {
     if (!player) return FPS / 2;
     let interval = player.shootInterval;
-    if (player.weaponType === 'shotgun') interval *= 1.1; // 샷건은 10% 느림 (10% 증가)
+    if (player.weaponType === 'shotgun') interval *= 1.0; // 샷건은 기본 속도 (10% 증가)
     if (player.isStimpackActive) interval /= 2; // 스팀팩일 때 2배 연사
     return interval;
 }
@@ -338,57 +531,112 @@ function drawSoldierSprite(ctx, x, y, scale = 1) {
     ctx.translate(x, y);
     ctx.scale(scale, scale);
 
-    // 그림자
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    // 그림자 (더 현실적인 그림자)
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
     ctx.beginPath();
-    ctx.ellipse(0, 5, 12, 4, 0, 0, Math.PI*2);
+    ctx.ellipse(0, 6, 14, 5, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // 몸통 (군복)
-    ctx.fillStyle = "#4a6b4a"; 
+    // 몸통 (현실적인 군복 - 올리브 드랍)
+    const bodyGradient = ctx.createLinearGradient(-8, -10, -8, 4);
+    bodyGradient.addColorStop(0, "#5a6b4a");
+    bodyGradient.addColorStop(0.5, "#4a5b3a");
+    bodyGradient.addColorStop(1, "#3a4b2a");
+    ctx.fillStyle = bodyGradient;
     ctx.beginPath();
-    ctx.roundRect(-8, -10, 16, 14, 4);
+    ctx.roundRect(-9, -10, 18, 15, 3);
     ctx.fill();
 
-    // 조끼
-    ctx.fillStyle = "#2c3e2c";
-    ctx.fillRect(-8, 0, 16, 4);
-    ctx.fillStyle = "#1a1a1a";
-    ctx.fillRect(-6, -10, 2, 14);
-    ctx.fillRect(4, -10, 2, 14);
+    // 조끼 (방탄조끼 스타일)
+    ctx.fillStyle = "#2a3a2a";
+    ctx.fillRect(-9, -2, 18, 5);
+    // 조끼 패치
+    ctx.fillStyle = "#1a2a1a";
+    ctx.fillRect(-7, -10, 3, 12);
+    ctx.fillRect(4, -10, 3, 12);
+    // 조끼 버클/스트랩
+    ctx.fillStyle = "#3a4a3a";
+    ctx.fillRect(-1, -5, 2, 8);
 
-    // 머리
-    ctx.fillStyle = "#e0ac69"; 
+    // 머리 (더 사실적인 피부색)
+    const skinGradient = ctx.createRadialGradient(0, -14, 0, 0, -14, 9);
+    skinGradient.addColorStop(0, "#f4c2a1");
+    skinGradient.addColorStop(1, "#d4a281");
+    ctx.fillStyle = skinGradient;
     ctx.beginPath();
     ctx.arc(0, -14, 9, 0, Math.PI*2);
     ctx.fill();
 
-    // 헬멧
-    ctx.fillStyle = "#3e553e";
+    // 헬멧 (현실적인 전투 헬멧)
+    const helmetGradient = ctx.createLinearGradient(0, -20, 0, -10);
+    helmetGradient.addColorStop(0, "#6a7a6a");
+    helmetGradient.addColorStop(0.5, "#5a6a5a");
+    helmetGradient.addColorStop(1, "#4a5a4a");
+    ctx.fillStyle = helmetGradient;
     ctx.beginPath();
     ctx.arc(0, -16, 10, Math.PI, 0); 
     ctx.bezierCurveTo(10, -16, 10, -12, 0, -12);
     ctx.bezierCurveTo(-10, -12, -10, -16, -10, -16); 
     ctx.fill();
-    ctx.fillStyle = "#2c3e2c";
-    ctx.fillRect(-2, -26, 4, 4);
+    // 헬멧 네트 패턴
+    ctx.strokeStyle = "rgba(30, 40, 30, 0.5)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-8, -14);
+    ctx.lineTo(8, -14);
+    ctx.moveTo(-6, -16);
+    ctx.lineTo(6, -16);
+    ctx.stroke();
+    // 헬멧 정상부
+    ctx.fillStyle = "#4a5a4a";
+    ctx.fillRect(-2, -26, 4, 5);
+    // 헬멧 밴드
+    ctx.fillStyle = "#2a3a2a";
+    ctx.fillRect(-8, -13, 16, 2);
 
-    // 고글
-    ctx.fillStyle = "#333";
+    // 고글/마스크 (더 현실적인 스타일)
+    ctx.fillStyle = "rgba(20, 20, 30, 0.9)";
     ctx.beginPath();
-    ctx.roundRect(-8, -16, 16, 6, 2);
+    ctx.roundRect(-8, -17, 16, 7, 2);
     ctx.fill();
-    ctx.fillStyle = "#3498db"; 
-    ctx.fillRect(-5, -15, 4, 2);
+    // 고글 렌즈
+    const lensGradient = ctx.createLinearGradient(-6, -17, -6, -11);
+    lensGradient.addColorStop(0, "rgba(50, 100, 150, 0.6)");
+    lensGradient.addColorStop(0.5, "rgba(30, 80, 130, 0.8)");
+    lensGradient.addColorStop(1, "rgba(20, 60, 110, 0.6)");
+    ctx.fillStyle = lensGradient;
+    ctx.fillRect(-6, -17, 5, 5);
+    ctx.fillRect(1, -17, 5, 5);
+    // 고글 하이라이트
+    ctx.fillStyle = "rgba(150, 200, 255, 0.4)";
+    ctx.fillRect(-5, -16, 3, 2);
+    ctx.fillRect(2, -16, 3, 2);
     
-    // 총
-    ctx.fillStyle = "#111";
-    ctx.translate(8, -2);
+    // 총 (더 사실적인 소총)
+    ctx.save();
+    ctx.translate(9, -2);
+    // 총신
+    const gunGradient = ctx.createLinearGradient(0, 0, 12, 0);
+    gunGradient.addColorStop(0, "#2a2a2a");
+    gunGradient.addColorStop(0.5, "#1a1a1a");
+    gunGradient.addColorStop(1, "#0a0a0a");
+    ctx.fillStyle = gunGradient;
     ctx.beginPath();
-    ctx.roundRect(0, -2, 12, 4, 1); 
-    ctx.fillRect(0, 2, 2, 4);
-    ctx.fillRect(10, -1, 2, 2); 
+    ctx.roundRect(0, -2.5, 14, 5, 1); 
     ctx.fill();
+    // 총열
+    ctx.fillStyle = "#0a0a0a";
+    ctx.fillRect(0, -1.5, 12, 3);
+    // 개머리판
+    ctx.fillStyle = "#3a3a3a";
+    ctx.fillRect(0, 1.5, 3, 5);
+    // 총구
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(12, -1, 2, 2);
+    // 조준경
+    ctx.fillStyle = "#4a4a4a";
+    ctx.fillRect(6, -3, 1, 2);
+    ctx.restore();
 
     ctx.restore();
 }
@@ -398,57 +646,116 @@ function drawZombieSprite(ctx, x, y, scale = 1, isBoss = false) {
     ctx.translate(x, y);
     ctx.scale(scale, scale);
 
-    // 그림자
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    // 그림자 (더 어두운 그림자)
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.beginPath();
-    ctx.ellipse(0, 8, 14, 5, 0, 0, Math.PI*2);
+    ctx.ellipse(0, 9, 16, 6, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // 몸통
-    ctx.fillStyle = isBoss ? "#5e3e3e" : "#5d6d7e";
+    // 몸통 (썩은 살색)
+    const bodyColor = isBoss ? "#6a4a4a" : "#6d7d8e";
+    const bodyGradient = ctx.createLinearGradient(-10, -15, -10, 10);
+    bodyGradient.addColorStop(0, bodyColor);
+    bodyGradient.addColorStop(0.5, isBoss ? "#5a3a3a" : "#5d6d7e");
+    bodyGradient.addColorStop(1, isBoss ? "#4a2a2a" : "#4d5d6e");
+    ctx.fillStyle = bodyGradient;
     ctx.beginPath();
-    ctx.roundRect(-10, -15, 20, 25, 5);
+    ctx.roundRect(-11, -15, 22, 26, 4);
     ctx.fill();
     
-    // 옷
+    // 옷 (찢어진 옷)
     ctx.fillStyle = "#2c3e50";
     ctx.beginPath();
-    ctx.moveTo(-10, 5);
-    ctx.lineTo(-5, -5);
-    ctx.lineTo(0, 5);
-    ctx.lineTo(5, -5);
-    ctx.lineTo(10, 5);
-    ctx.lineTo(10, 10);
-    ctx.lineTo(-10, 10);
+    // 찢어진 느낌
+    ctx.moveTo(-11, 5);
+    ctx.lineTo(-6, -5);
+    ctx.lineTo(-2, 3);
+    ctx.lineTo(2, -3);
+    ctx.lineTo(6, 5);
+    ctx.lineTo(11, 5);
+    ctx.lineTo(11, 10);
+    ctx.lineTo(-11, 10);
+    ctx.closePath();
+    ctx.fill();
+    // 옷 구멍
+    ctx.fillStyle = "#1a2a3a";
+    ctx.beginPath();
+    ctx.arc(-3, 2, 2, 0, Math.PI * 2);
+    ctx.arc(4, 1, 1.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // 머리
-    ctx.fillStyle = isBoss ? "#8e44ad" : "#aab7b8";
+    // 머리 (썩은 피부)
+    const headColor = isBoss ? "#7a5a5a" : "#8a9a9a";
+    const headGradient = ctx.createRadialGradient(0, -20, 0, 0, -20, 12);
+    headGradient.addColorStop(0, headColor);
+    headGradient.addColorStop(0.7, isBoss ? "#6a4a4a" : "#7a8a8a");
+    headGradient.addColorStop(1, isBoss ? "#5a3a3a" : "#6a7a7a");
+    ctx.fillStyle = headGradient;
     ctx.beginPath();
     ctx.arc(0, -20, 12, 0, Math.PI*2);
     ctx.fill();
 
-    // 눈
-    ctx.fillStyle = "#e74c3c";
+    // 눈 (현실적인 빨간 눈)
+    ctx.fillStyle = "#ff0000";
     ctx.beginPath();
-    ctx.arc(-4, -20, isBoss? 3 : 2, 0, Math.PI*2);
-    ctx.arc(4, -20, isBoss? 3 : 2, 0, Math.PI*2);
+    ctx.arc(-4, -20, isBoss ? 3.5 : 2.5, 0, Math.PI*2);
+    ctx.arc(4, -20, isBoss ? 3.5 : 2.5, 0, Math.PI*2);
+    ctx.fill();
+    // 눈 하이라이트 (광택)
+    ctx.fillStyle = "rgba(255, 100, 100, 0.8)";
+    ctx.beginPath();
+    ctx.arc(-3.5, -20.5, 1, 0, Math.PI*2);
+    ctx.arc(4.5, -20.5, 1, 0, Math.PI*2);
     ctx.fill();
     
-    // 상처
-    ctx.strokeStyle = "#c0392b";
+    // 상처 (더 사실적인 상처)
+    ctx.strokeStyle = "#8b0000";
+    ctx.fillStyle = "#6b0000";
+    ctx.lineWidth = 1.5;
+    // 큰 상처
+    ctx.beginPath();
+    ctx.moveTo(-4, -16);
+    ctx.lineTo(4, -16);
+    ctx.lineTo(3, -14);
+    ctx.lineTo(-3, -14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // 작은 상처들
+    ctx.beginPath();
+    ctx.moveTo(-5, -18);
+    ctx.lineTo(-3, -18);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(3, -18);
+    ctx.lineTo(5, -18);
+    ctx.stroke();
+    // 얼굴 주름
+    ctx.strokeStyle = "rgba(100, 50, 50, 0.6)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(-3, -15);
-    ctx.lineTo(3, -15);
+    ctx.moveTo(-3, -22);
+    ctx.lineTo(3, -22);
+    ctx.moveTo(-2, -15);
+    ctx.lineTo(2, -15);
     ctx.stroke();
 
-    // 팔
-    ctx.fillStyle = isBoss ? "#8e44ad" : "#aab7b8";
+    // 팔 (썩은 팔)
+    const armColor = isBoss ? "#7a5a5a" : "#8a9a9a";
+    ctx.fillStyle = armColor;
     ctx.beginPath();
-    ctx.roundRect(-14, -12, 4, 12, 2); 
-    ctx.roundRect(10, -12, 4, 12, 2); 
+    ctx.roundRect(-15, -12, 5, 13, 2); 
+    ctx.roundRect(10, -12, 5, 13, 2); 
     ctx.fill();
+    // 팔 근육/뼈 디테일
+    ctx.strokeStyle = "rgba(100, 80, 80, 0.5)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-12, -10);
+    ctx.lineTo(-12, 0);
+    ctx.moveTo(12, -10);
+    ctx.lineTo(12, 0);
+    ctx.stroke();
 
     ctx.restore();
 }
@@ -457,33 +764,43 @@ function drawStimpackSprite(ctx, x, y) {
     ctx.save();
     ctx.translate(x, y);
 
-    // 후광
-    ctx.shadowColor = "#2ecc71";
-    ctx.shadowBlur = 15;
+    // 후광 (현실적인 글로우)
+    ctx.shadowColor = "#00ff88";
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
 
-    // 본체 (의료 가방 형태)
-    ctx.fillStyle = "#ecf0f1";
+    // 본체 (현실적인 의료 키트)
+    const kitGradient = ctx.createLinearGradient(-15, -15, -15, 15);
+    kitGradient.addColorStop(0, "#f5f5f5");
+    kitGradient.addColorStop(0.5, "#e8e8e8");
+    kitGradient.addColorStop(1, "#d0d0d0");
+    ctx.fillStyle = kitGradient;
     ctx.beginPath();
-    ctx.roundRect(-15, -15, 30, 30, 5);
+    ctx.roundRect(-16, -16, 32, 32, 4);
     ctx.fill();
-    ctx.shadowBlur = 0; // 아이콘 내부는 깔끔하게
+    ctx.shadowBlur = 0;
 
-    // 번개(공속 증가)
-    ctx.fillStyle = "#2ecc71";
-    ctx.beginPath();
-    ctx.moveTo(2, -8);
-    ctx.lineTo(-6, 2);
-    ctx.lineTo(0, 2);
-    ctx.lineTo(-2, 8);
-    ctx.lineTo(6, -2);
-    ctx.lineTo(0, -2);
-    ctx.closePath();
-    ctx.fill();
-
-    // 테두리
-    ctx.strokeStyle = "#27ae60";
+    // 의료 십자 표시
+    ctx.fillStyle = "#ff3333";
+    // 세로선
+    ctx.fillRect(-3, -12, 6, 24);
+    // 가로선
+    ctx.fillRect(-12, -3, 24, 6);
+    
+    // 키트 테두리
+    ctx.strokeStyle = "#333333";
     ctx.lineWidth = 2;
-    ctx.strokeRect(-15, -15, 30, 30);
+    ctx.strokeRect(-16, -16, 32, 32);
+    
+    // 키트 클립/패스너
+    ctx.fillStyle = "#666666";
+    ctx.fillRect(-8, -18, 16, 3);
+    ctx.fillRect(-8, 15, 16, 3);
+
+    // 하이라이트
+    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+    ctx.fillRect(-14, -14, 28, 8);
 
     ctx.restore();
 }
@@ -492,27 +809,53 @@ function drawWeaponItemSprite(ctx, x, y, type) {
     ctx.save();
     ctx.translate(x, y);
 
-    ctx.shadowColor = "#f1c40f";
-    ctx.shadowBlur = 12;
+    // 현실적인 무기 상자
+    ctx.shadowColor = type === 'shotgun' ? "#ff8800" : "#ffdd00";
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
 
-    // 기본 상자
-    ctx.fillStyle = "#34495e";
+    // 무기 상자 (금속 상자 느낌)
+    const boxGradient = ctx.createLinearGradient(-18, -18, -18, 18);
+    boxGradient.addColorStop(0, "#4a4a4a");
+    boxGradient.addColorStop(0.3, "#3a3a3a");
+    boxGradient.addColorStop(0.7, "#2a2a2a");
+    boxGradient.addColorStop(1, "#1a1a1a");
+    ctx.fillStyle = boxGradient;
     ctx.beginPath();
-    ctx.roundRect(-18, -18, 36, 36, 6);
+    ctx.roundRect(-19, -19, 38, 38, 5);
     ctx.fill();
-
+    
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = "#f1c40f";
-    ctx.lineWidth = 2;
+    
+    // 상자 테두리 (금속 느낌)
+    const borderGradient = ctx.createLinearGradient(-18, -18, 18, 18);
+    borderGradient.addColorStop(0, "#888888");
+    borderGradient.addColorStop(0.5, "#555555");
+    borderGradient.addColorStop(1, "#333333");
+    ctx.strokeStyle = borderGradient;
+    ctx.lineWidth = 3;
     ctx.strokeRect(-18, -18, 36, 36);
-
-    // 아이콘 문자 (한글)
-    ctx.fillStyle = "#f1c40f";
-    ctx.font = "bold 14px 'Noto Sans KR'";
+    
+    // 내부 테두리
+    ctx.strokeStyle = "#1a1a1a";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-15, -15, 30, 30);
+    
+    // 상자 하이라이트
+    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.fillRect(-17, -17, 34, 12);
+    
+    // 무기 라벨 (더 현실적인 스타일)
+    ctx.fillStyle = type === 'shotgun' ? "#ff8800" : "#ffdd00";
+    ctx.font = "bold 12px 'Rajdhani'";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+    ctx.shadowBlur = 4;
     const label = type === 'shotgun' ? '샷건' : '표창';
     ctx.fillText(label, 0, 0);
+    ctx.shadowBlur = 0;
 
     ctx.restore();
 }
@@ -561,7 +904,7 @@ class Player {
 
         this.shootTimer++;
         let currentInterval = this.shootInterval;
-        if (this.weaponType === 'shotgun') currentInterval *= 1.1; // 샷건: 10% 느림 (10% 증가)
+        if (this.weaponType === 'shotgun') currentInterval *= 1.0; // 샷건: 기본 속도 (10% 증가)
         if (this.isStimpackActive) currentInterval /= 2;           // 스팀팩: 2배 연사
         
         if (this.shootTimer >= currentInterval) {
@@ -682,13 +1025,20 @@ class Player {
             }
         }
 
-        // 숫자 표시
+        // 숫자 표시 (현실적인 HUD 스타일)
         if (this.squadSize > 1) {
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold 16px 'Noto Sans KR'";
-            ctx.strokeStyle = "black";
-            ctx.lineWidth = 3;
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 18px 'Orbitron'";
+            ctx.strokeStyle = "rgba(0,0,0,0.9)";
+            ctx.lineWidth = 5;
             ctx.strokeText(Math.floor(this.squadSize), this.x, this.y - 50);
+            
+            // 숫자 그라데이션
+            const numGradient = ctx.createLinearGradient(this.x - 15, this.y - 55, this.x + 15, this.y - 45);
+            numGradient.addColorStop(0, "#ffffff");
+            numGradient.addColorStop(0.5, "#88ccff");
+            numGradient.addColorStop(1, "#ffffff");
+            ctx.fillStyle = numGradient;
             ctx.fillText(Math.floor(this.squadSize), this.x, this.y - 50);
         }
     }
@@ -723,26 +1073,126 @@ class Bullet {
         ctx.translate(this.x, this.y);
 
         if (this.weaponType === 'shuriken') {
-            // 표창 모양
-            ctx.fillStyle = this.color;
+            // 표창 모양 - 4면 날카로운 디자인
+            ctx.save();
+            
+            // 회전 애니메이션 (날카로움 표현)
+            const rotation = (Date.now() * 0.01) % (Math.PI * 2);
+            ctx.rotate(rotation);
+            
+            // 외부 그라데이션 효과
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius * 1.5);
+            gradient.addColorStop(0, this.color);
+            gradient.addColorStop(0.7, this.color);
+            gradient.addColorStop(1, 'rgba(241, 196, 15, 0.3)');
+            
+            // 그림자 효과
             ctx.shadowColor = this.color;
-            ctx.shadowBlur = 10;
-
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            // 메인 표창 본체 (4면 날카로운 모양)
             ctx.beginPath();
-            ctx.moveTo(0, -this.radius);
-            ctx.lineTo(this.radius, 0);
-            ctx.lineTo(0, this.radius);
-            ctx.lineTo(-this.radius, 0);
+            const r = this.radius;
+            // 상단 날카로운 끝
+            ctx.moveTo(0, -r);
+            // 우상단 날
+            ctx.lineTo(r * 0.7, -r * 0.3);
+            // 우측 날카로운 끝
+            ctx.lineTo(r, 0);
+            // 우하단 날
+            ctx.lineTo(r * 0.3, r * 0.7);
+            // 하단 날카로운 끝
+            ctx.lineTo(0, r);
+            // 좌하단 날
+            ctx.lineTo(-r * 0.3, r * 0.7);
+            // 좌측 날카로운 끝
+            ctx.lineTo(-r, 0);
+            // 좌상단 날
+            ctx.lineTo(-r * 0.7, -r * 0.3);
             ctx.closePath();
+            
+            ctx.fillStyle = gradient;
             ctx.fill();
+            
+            // 내부 하이라이트 (금속질 느낌)
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            const innerR = r * 0.6;
+            ctx.moveTo(0, -innerR);
+            ctx.lineTo(innerR * 0.7, -innerR * 0.3);
+            ctx.lineTo(innerR, 0);
+            ctx.lineTo(innerR * 0.3, innerR * 0.7);
+            ctx.lineTo(0, innerR);
+            ctx.lineTo(-innerR * 0.3, innerR * 0.7);
+            ctx.lineTo(-innerR, 0);
+            ctx.lineTo(-innerR * 0.7, -innerR * 0.3);
+            ctx.closePath();
+            
+            const innerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, innerR);
+            innerGradient.addColorStop(0, '#fff9c4');
+            innerGradient.addColorStop(0.5, this.color);
+            innerGradient.addColorStop(1, 'rgba(241, 196, 15, 0.6)');
+            ctx.fillStyle = innerGradient;
+            ctx.fill();
+            
+            // 날카로운 가장자리 강조
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            
+            // 중심 홀 (표창 특유의 구멍)
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 0.15, 0, Math.PI * 2);
+            ctx.fillStyle = '#2c3e50';
+            ctx.fill();
+            ctx.strokeStyle = '#34495e';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+            
+            // 가장 날카로운 부분 강조 (4면 끝부분)
+            ctx.fillStyle = '#fff';
+            ctx.globalAlpha = 0.8;
+            const tipR = r * 0.9;
+            const tipSize = 2;
+            // 상단 끝
+            ctx.fillRect(-tipSize/2, -tipR, tipSize, tipSize * 2);
+            // 우측 끝
+            ctx.fillRect(tipR - tipSize, -tipSize/2, tipSize * 2, tipSize);
+            // 하단 끝
+            ctx.fillRect(-tipSize/2, tipR - tipSize * 2, tipSize, tipSize * 2);
+            // 좌측 끝
+            ctx.fillRect(-tipR, -tipSize/2, tipSize * 2, tipSize);
+            
+            ctx.globalAlpha = 1.0;
+            ctx.restore();
         } else {
-            // 일반 탄환
+            // 일반 탄환 (현실적인 총알)
+            // 총알 본체
+            const bulletGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
+            bulletGradient.addColorStop(0, this.color);
+            bulletGradient.addColorStop(0.7, this.color);
+            bulletGradient.addColorStop(1, "rgba(0,0,0,0.8)");
+            
+            ctx.fillStyle = bulletGradient;
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 8;
             ctx.beginPath();
             ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = this.color; 
-            ctx.shadowColor = this.color;
-            ctx.shadowBlur = 10;
             ctx.fill();
+            
+            // 총알 하이라이트
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.beginPath();
+            ctx.arc(-this.radius * 0.3, -this.radius * 0.3, this.radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 총알 외곽선
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
         }
 
         ctx.restore();
@@ -940,9 +1390,21 @@ class ZombieHorde {
         ctx.translate(this.x + shakeX, this.y);
 
         if (this.isBoss) {
-            ctx.fillStyle = "rgba(231, 76, 60, 0.2)";
+            // 보스 후광 (더 현실적인 위협감)
+            const bossGlow = ctx.createRadialGradient(0, 0, this.radius, 0, 0, this.radius + 20);
+            bossGlow.addColorStop(0, "rgba(200, 0, 0, 0.4)");
+            bossGlow.addColorStop(0.5, "rgba(150, 0, 0, 0.2)");
+            bossGlow.addColorStop(1, "rgba(100, 0, 0, 0)");
+            ctx.fillStyle = bossGlow;
             ctx.beginPath();
-            ctx.arc(0, 0, this.radius + 10, 0, Math.PI*2);
+            ctx.arc(0, 0, this.radius + 20, 0, Math.PI*2);
+            ctx.fill();
+            
+            // 보스 맥동 효과
+            const pulse = Math.sin(Date.now() * 0.005) * 0.1 + 0.9;
+            ctx.fillStyle = "rgba(255, 0, 0, 0.15)";
+            ctx.beginPath();
+            ctx.arc(0, 0, (this.radius + 15) * pulse, 0, Math.PI*2);
             ctx.fill();
             
             drawZombieSprite(ctx, 0, 0, 3.5, true);
@@ -958,15 +1420,48 @@ class ZombieHorde {
         const hpPercent = Math.max(0, this.hp / this.maxHp);
         const barWidth = this.radius * 2;
         
-        ctx.fillStyle = "#333";
+        // HP 바 배경 (현실적인 금속 프레임)
+        const barBgGradient = ctx.createLinearGradient(-barWidth/2, -this.radius - 20, -barWidth/2, -this.radius - 10);
+        barBgGradient.addColorStop(0, "#1a1a1a");
+        barBgGradient.addColorStop(0.5, "#0a0a0a");
+        barBgGradient.addColorStop(1, "#1a1a1a");
+        ctx.fillStyle = barBgGradient;
+        ctx.fillRect(-barWidth/2 - 2, -this.radius - 22, barWidth + 4, 14);
+        
+        // HP 바 내부 배경
+        ctx.fillStyle = "rgba(20, 20, 20, 0.9)";
         ctx.fillRect(-barWidth/2, -this.radius - 20, barWidth, 10);
-        ctx.fillStyle = this.isBoss ? "#8e44ad" : "#e74c3c";
+        
+        // HP 바 (현실적인 그라데이션)
+        const hpBarGradient = ctx.createLinearGradient(-barWidth/2, -this.radius - 20, -barWidth/2 + barWidth * hpPercent, -this.radius - 10);
+        if (this.isBoss) {
+            hpBarGradient.addColorStop(0, "#aa44cc");
+            hpBarGradient.addColorStop(1, "#8e22aa");
+        } else {
+            hpBarGradient.addColorStop(0, "#ff4444");
+            hpBarGradient.addColorStop(1, "#cc2222");
+        }
+        ctx.fillStyle = hpBarGradient;
         ctx.fillRect(-barWidth/2, -this.radius - 20, barWidth * hpPercent, 10);
         
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 20px 'Black Ops One'";
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 3;
+        // HP 바 하이라이트
+        if (hpPercent > 0) {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+            ctx.fillRect(-barWidth/2, -this.radius - 20, barWidth * hpPercent, 3);
+        }
+        
+        // HP 바 테두리
+        ctx.strokeStyle = "#555555";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-barWidth/2 - 2, -this.radius - 22, barWidth + 4, 14);
+        ctx.strokeStyle = "#888888";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-barWidth/2 - 1, -this.radius - 21, barWidth + 2, 12);
+        
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 18px 'Orbitron'";
+        ctx.strokeStyle = "rgba(0,0,0,0.9)";
+        ctx.lineWidth = 4;
         ctx.strokeText(Math.floor(this.hp), 0, -this.radius - 35);
         ctx.fillText(Math.floor(this.hp), 0, -this.radius - 35);
 
@@ -1014,31 +1509,72 @@ class Gate {
 
     draw() {
         ctx.save();
-        ctx.globalAlpha = 0.8;
+        ctx.globalAlpha = 0.95;
         
+        // 현실적인 게이트 디자인 (금속 느낌)
         const grd = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
-        grd.addColorStop(0, "#2980b9");
-        grd.addColorStop(1, "#3498db");
+        grd.addColorStop(0, "#4a6a8a");
+        grd.addColorStop(0.3, "#3a5a7a");
+        grd.addColorStop(0.7, "#2a4a6a");
+        grd.addColorStop(1, "#1a3a5a");
         ctx.fillStyle = grd;
         
         ctx.beginPath();
-        ctx.roundRect(this.x, this.y, this.width, this.height, 10);
+        ctx.roundRect(this.x, this.y, this.width, this.height, 6);
         ctx.fill();
         
-        ctx.strokeStyle = "#85c1e9";
+        // 게이트 테두리 (금속 느낌)
+        const borderGradient = ctx.createLinearGradient(this.x, this.y, this.x + this.width, this.y);
+        borderGradient.addColorStop(0, "#8a9aab");
+        borderGradient.addColorStop(0.5, "#5a6a7a");
+        borderGradient.addColorStop(1, "#8a9aab");
+        ctx.strokeStyle = borderGradient;
         ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // 게이트 내부 테두리
+        ctx.strokeStyle = "#2a3a4a";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x + 3, this.y + 3, this.width - 6, this.height - 6);
+        
+        // 게이트 하이라이트
+        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.fillRect(this.x, this.y, this.width, this.height * 0.3);
+        
+        // 게이트 패널 라인
+        ctx.strokeStyle = "rgba(100, 120, 140, 0.4)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(this.x + this.width * 0.33, this.y);
+        ctx.lineTo(this.x + this.width * 0.33, this.y + this.height);
+        ctx.moveTo(this.x + this.width * 0.67, this.y);
+        ctx.lineTo(this.x + this.width * 0.67, this.y + this.height);
         ctx.stroke();
         
         ctx.globalAlpha = 1.0;
         
-        ctx.fillStyle = "white";
-        ctx.font = "bold 32px 'Black Ops One', sans-serif";
+        // 숫자 텍스트 (더 현실적인 스타일)
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "900 32px 'Orbitron', sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.shadowColor = "rgba(0,0,0,0.5)";
-        ctx.shadowBlur = 4;
+        ctx.shadowColor = "rgba(0,0,0,0.9)";
+        ctx.shadowBlur = 8;
         
         let displayVal = Math.floor(this.value);
+        ctx.strokeStyle = "rgba(0,0,0,0.9)";
+        ctx.lineWidth = 4;
+        ctx.strokeText("+" + displayVal, this.x + this.width/2, this.y + this.height/2);
+        
+        // 숫자 그라데이션 효과
+        const textGradient = ctx.createLinearGradient(
+            this.x + this.width/2 - 30, this.y + this.height/2,
+            this.x + this.width/2 + 30, this.y + this.height/2
+        );
+        textGradient.addColorStop(0, "#ffffff");
+        textGradient.addColorStop(0.5, "#ffff88");
+        textGradient.addColorStop(1, "#ffffff");
+        ctx.fillStyle = textGradient;
         ctx.fillText("+" + displayVal, this.x + this.width/2, this.y + this.height/2);
         
         ctx.restore();
@@ -1094,11 +1630,16 @@ class FloatingText {
         ctx.globalAlpha = opacity;
         
         ctx.fillStyle = this.color;
-        ctx.font = `bold ${this.fontSize} 'Black Ops One'`;
+        ctx.font = `bold ${this.fontSize} 'Orbitron'`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.shadowColor = "rgba(0,0,0,0.8)";
-        ctx.shadowBlur = 4;
+        ctx.shadowColor = "rgba(0,0,0,0.9)";
+        ctx.shadowBlur = 6;
+        
+        // 외곽선 (더 선명하게)
+        ctx.strokeStyle = "rgba(0,0,0,0.8)";
+        ctx.lineWidth = 3;
+        ctx.strokeText(this.text, this.x, this.y);
         
         ctx.fillText(this.text, this.x, this.y);
         ctx.restore();
@@ -1190,10 +1731,12 @@ function addSquad(amount) {
     squadEl.innerText = Math.floor(player.squadSize);
     
     squadEl.style.transform = "scale(1.5)";
-    squadEl.style.color = "#2ecc71";
+    squadEl.style.color = "#00ff88";
+    squadEl.style.textShadow = "0 0 15px rgba(0, 255, 136, 0.8)";
     setTimeout(() => {
         squadEl.style.transform = "scale(1)";
-        squadEl.style.color = "#3498db";
+        squadEl.style.color = "#00d4ff";
+        squadEl.style.textShadow = "0 0 6px rgba(0, 212, 255, 0.6)";
     }, 200);
 }
 
@@ -1232,11 +1775,15 @@ function spawnEnemies() {
             warning.style.top = "20%";
             warning.style.width = "100%";
             warning.style.textAlign = "center";
-            warning.style.color = "#e74c3c";
-            warning.style.fontSize = "40px";
-            warning.style.fontWeight = "bold";
-            warning.style.fontFamily = "Black Ops One";
-            warning.style.textShadow = "0 0 20px black";
+            warning.style.color = "#ff4444";
+            warning.style.fontSize = "44px";
+            warning.style.fontWeight = "900";
+            warning.style.fontFamily = "Orbitron";
+            warning.style.textShadow = 
+                "0 0 20px rgba(255, 68, 68, 0.8), " +
+                "0 0 40px rgba(255, 68, 68, 0.5), " +
+                "0 4px 8px rgba(0,0,0,0.9)";
+            warning.style.letterSpacing = "4px";
             warning.style.zIndex = "5";
             document.body.appendChild(warning);
             setTimeout(() => warning.remove(), 2500);
@@ -1382,28 +1929,75 @@ function update() {
 }
 
 function drawBackground() {
-    ctx.fillStyle = "#2c3e50"; 
+    // 전장 배경 - 어둡고 현실적인 느낌
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    gradient.addColorStop(0, "#1a1a1a");
+    gradient.addColorStop(0.3, "#0f0f0f");
+    gradient.addColorStop(0.7, "#0a0a0a");
+    gradient.addColorStop(1, "#050505");
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     
-    if (Math.random() < 0.5) {
-        ctx.fillStyle = "rgba(0,0,0,0.1)";
-        ctx.fillRect(Math.random()*canvasWidth, Math.random()*canvasHeight, 2, 2);
+    // 먼지와 잔해 효과
+    if (Math.random() < 0.3) {
+        ctx.fillStyle = "rgba(80, 60, 40, 0.15)";
+        const dustX = Math.random() * canvasWidth;
+        const dustY = Math.random() * canvasHeight;
+        const dustSize = Math.random() * 3 + 1;
+        ctx.beginPath();
+        ctx.arc(dustX, dustY, dustSize, 0, Math.PI * 2);
+        ctx.fill();
     }
     
-    ctx.strokeStyle = "#95a5a6";
-    ctx.lineWidth = 4;
-    ctx.setLineDash([66, 44]);
-    ctx.lineDashOffset = -distance; 
+    // 조명 효과 (스포트라이트 같은)
+    const lightGradient = ctx.createRadialGradient(
+        canvasWidth / 2, canvasHeight * 0.3, 0,
+        canvasWidth / 2, canvasHeight * 0.3, canvasHeight * 0.6
+    );
+    lightGradient.addColorStop(0, "rgba(100, 80, 60, 0.1)");
+    lightGradient.addColorStop(0.5, "rgba(50, 40, 30, 0.05)");
+    lightGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = lightGradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     
+    // 전장 구분선 (더 현실적인 스타일)
+    ctx.strokeStyle = "rgba(100, 80, 60, 0.2)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([40, 20, 10, 20]);
+    ctx.lineDashOffset = -distance * 0.5; 
+    
+    // 중앙 구분선
     ctx.beginPath();
     ctx.moveTo(canvasWidth/2, 0);
     ctx.lineTo(canvasWidth/2, canvasHeight);
-    ctx.moveTo(canvasWidth * 0.2, 0);
-    ctx.lineTo(canvasWidth * 0.2, canvasHeight);
-    ctx.moveTo(canvasWidth * 0.8, 0);
-    ctx.lineTo(canvasWidth * 0.8, canvasHeight);
     ctx.stroke();
+    
+    // 측면 가이드 라인
+    ctx.strokeStyle = "rgba(80, 60, 40, 0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(canvasWidth * 0.25, 0);
+    ctx.lineTo(canvasWidth * 0.25, canvasHeight);
+    ctx.moveTo(canvasWidth * 0.75, 0);
+    ctx.lineTo(canvasWidth * 0.75, canvasHeight);
+    ctx.stroke();
+    
     ctx.setLineDash([]);
+    
+    // 지면 텍스처 (바닥 느낌)
+    ctx.fillStyle = "rgba(40, 30, 20, 0.3)";
+    ctx.fillRect(0, canvasHeight - 20, canvasWidth, 20);
+    
+    // 전장 분위기 (연기 효과)
+    if (Math.random() < 0.1) {
+        ctx.fillStyle = "rgba(50, 50, 50, 0.2)";
+        const smokeX = Math.random() * canvasWidth;
+        const smokeY = canvasHeight - 30 + Math.sin(Date.now() * 0.001) * 10;
+        ctx.beginPath();
+        ctx.arc(smokeX, smokeY, 8, 0, Math.PI * 2);
+        ctx.arc(smokeX + 5, smokeY - 3, 6, 0, Math.PI * 2);
+        ctx.fill();
+    }
 }
 
 function draw() {
